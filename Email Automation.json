@@ -1,0 +1,771 @@
+{
+  "name": "Email Automation",
+  "nodes": [
+    {
+      "parameters": {
+        "pollTimes": {
+          "item": [
+            {
+              "mode": "everyMinute"
+            }
+          ]
+        },
+        "simple": false,
+        "filters": {
+          "labelIds": [
+            "INBOX"
+          ],
+          "readStatus": "unread"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.gmailTrigger",
+      "typeVersion": 1.4,
+      "position": [
+        -544,
+        -16
+      ],
+      "id": "fac52d42-29eb-46f6-bb67-fed3c1517b99",
+      "name": "Gmail Trigger",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "ZSNyqqIS5CDPf9Op",
+          "name": "Gmail account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const email = $input.first().json;\n\n// Parse \"Name <address>\" strings or Gmail's parsed { value: [{ name, address }] } objects\nconst parseAddress = (v) => {\n  if (!v) return { name: '', address: '' };\n  if (typeof v === 'string') {\n    const m = v.match(/^\\s*\"?([^\"<]*)\"?\\s*<([^>]+)>\\s*$/);\n    return m ? { name: m[1].trim(), address: m[2].trim() } : { name: '', address: v.trim() };\n  }\n  const first = v.value && v.value[0];\n  if (first) return { name: first.name || '', address: first.address || '' };\n  return { name: '', address: v.text || '' };\n};\n\nconst from = parseAddress(email.from || email.From);\nconst subject = email.subject || email.Subject || '(No Subject)';\n\nlet body = email.text || email.textPlain || '';\nif (!body && email.html) {\n  body = String(email.html).replace(/<style[\\s\\S]*?<\\/style>/gi, '').replace(/<[^>]+>/g, ' ').replace(/\\s+/g, ' ').trim();\n}\nif (!body) body = email.snippet || '';\n\nlet receivedAt = email.date;\nif (!receivedAt && email.internalDate) receivedAt = new Date(Number(email.internalDate)).toISOString();\nif (!receivedAt) receivedAt = new Date().toISOString();\n\nreturn [{\n  json: {\n    message_id: email.id || '',\n    sender_email: from.address,\n    sender_name: from.name,\n    subject: subject,\n    body: body.substring(0, 3000),\n    labels: email.labelIds || [],\n    received_at: receivedAt\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -368,
+        -16
+      ],
+      "id": "6e16a51e-afdc-4ee8-a5bf-5d044fc2456f",
+      "name": "Extract Email"
+    },
+    {
+      "parameters": {
+        "modelId": {
+          "__rl": true,
+          "value": "gpt-4o-mini",
+          "mode": "list",
+          "cachedResultName": "GPT-4O-MINI"
+        },
+        "responses": {
+          "values": [
+            {
+              "content": "# ROLE\nYou are an expert email classifier and customer service analyst. Analyze incoming emails and return ONLY valid JSON.\n\n# OUTPUT SCHEMA\nReturn exactly this structure:\n\n{\n  \"category\": \"question | order | complaint | spam | newsletter | other\",\n  \"priority\": \"high | medium | low\",\n  \"sentiment\": \"positive | neutral | negative | angry\",\n  \"summary\": \"1-2 sentence summary\",\n  \"suggested_reply\": \"Professional reply in the SAME language as the email\",\n  \"handoff_needed\": true | false,\n  \"labels\": [\"tag1\", \"tag2\"],\n  \"is_lead\": true | false,\n  \"lead_data\": {\n    \"phone\": \"or null\",\n    \"company\": \"or null\",\n    \"intent\": \"short description or null\"\n  },\n  \"lead_score\": 0\n}\n\n# CATEGORY RULES\n- \"question\": Asks about a product, service, or info\n- \"order\": Wants to buy, order, or book\n- \"complaint\": Expressing dissatisfaction\n- \"spam\": Promotional, unsolicited, or phishing\n- \"newsletter\": Subscriptions, marketing emails\n- \"other\": Doesn't fit above\n\n# PRIORITY RULES\n- \"high\": Urgent, angry customer, money involved, time-sensitive\n- \"medium\": Standard business inquiry\n- \"low\": Newsletter, spam, FYI\n\n# SENTIMENT RULES\n- \"positive\": Happy, thanking, complimentary\n- \"neutral\": Standard inquiry\n- \"negative\": Mild dissatisfaction\n- \"angry\": Strong complaints, threats, all caps\n\n# HANDOFF RULES (handoff_needed = true if)\n- Sentiment is \"angry\"\n- OR priority is \"high\" AND category is \"complaint\"\n- OR legal, financial, or sensitive topics\n\n# LEAD RULES (is_lead = true if)\n- Sender shows buying intent\n- OR asks for services/pricing\n- OR provides contact info with a request\n\n# LEAD SCORE\n- 80-100: Clear buying intent + contact info\n- 50-79: Interest but missing details\n- 20-49: Vague inquiry\n- 0-19: Not a lead\n\n# LABELS RULES\n- Max 2 labels\n- Short, lowercase\n- Examples: \"pricing\", \"shipping\", \"refund\", \"urgent\"\n\n# CRITICAL OUTPUT RULES\n- Return ONLY the JSON object — nothing else\n- NO markdown fences (no ```json)\n- NO explanation or preamble\n- Reply language MUST match the email's language\n- If a field is not applicable, use null\n- Numbers for lead_score must be integers (not strings)\n\nStart now."
+            },
+            {
+              "content": "=From: {{ $json.sender_name }} <{{ $json.sender_email }}>\nSubject: {{ $json.subject }}\n\nBody:\n{{ $json.body }}"
+            }
+          ]
+        },
+        "builtInTools": {},
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 2.3,
+      "position": [
+        -240,
+        -16
+      ],
+      "id": "369d426d-59a9-428a-a415-4f1659695a0a",
+      "name": "AI Classifier",
+      "credentials": {
+        "openAiApi": {
+          "id": null,
+          "name": "",
+          "__aiGatewayManaged": true
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const input = $input.first().json;\n\nlet aiResponse = '';\nif (input.output && input.output[0] && input.output[0].content && input.output[0].content[0]) {\n  aiResponse = input.output[0].content[0].text;\n} else if (input.message && input.message.content) {\n  aiResponse = input.message.content;\n} else if (input.text) {\n  aiResponse = input.text;\n} else {\n  aiResponse = JSON.stringify(input);\n}\n\nlet parsed;\ntry {\n  const cleaned = aiResponse.replace(/```json|```/g, '').trim();\n  parsed = JSON.parse(cleaned);\n} catch (e) {\n  parsed = {\n    category: 'other',\n    priority: 'medium',\n    sentiment: 'neutral',\n    summary: '',\n    suggested_reply: '',\n    handoff_needed: false,\n    labels: [],\n    is_lead: false,\n    lead_data: {},\n    lead_score: 0\n  };\n}\n\nconst email = $('Extract Email').first().json;\n\nreturn [{\n  json: {\n    ...email,\n    category: parsed.category || 'other',\n    priority: parsed.priority || 'medium',\n    sentiment: parsed.sentiment || 'neutral',\n    summary: parsed.summary || '',\n    suggested_reply: parsed.suggested_reply || '',\n    handoff: parsed.handoff_needed === true,\n    ai_labels: parsed.labels || [],\n    is_lead: parsed.is_lead === true,\n    lead_phone: parsed.lead_data?.phone || null,\n    lead_company: parsed.lead_data?.company || null,\n    lead_intent: parsed.lead_data?.intent || null,\n    lead_score: parsed.lead_score || 0\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        48,
+        -16
+      ],
+      "id": "1046676a-cb2c-46c1-817a-2fe88be548b3",
+      "name": "Parse Classification"
+    },
+    {
+      "parameters": {
+        "tableId": "bot_emails",
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "message_id",
+              "fieldValue": "={{ $('Parse Classification').first().json.message_id }}"
+            },
+            {
+              "fieldId": "sender_email",
+              "fieldValue": "={{ $('Parse Classification').first().json.sender_email }}"
+            },
+            {
+              "fieldId": "sender_name",
+              "fieldValue": "={{ $('Parse Classification').first().json.sender_name }}"
+            },
+            {
+              "fieldId": "subject",
+              "fieldValue": "={{ $('Parse Classification').first().json.subject }}"
+            },
+            {
+              "fieldId": "body",
+              "fieldValue": "={{ $('Parse Classification').first().json.body }}"
+            },
+            {
+              "fieldId": "category",
+              "fieldValue": "={{ $('Parse Classification').first().json.category }}"
+            },
+            {
+              "fieldId": "priority",
+              "fieldValue": "={{ $('Parse Classification').first().json.priority }}"
+            },
+            {
+              "fieldId": "sentiment",
+              "fieldValue": "={{ $('Parse Classification').first().json.sentiment }}"
+            },
+            {
+              "fieldId": "summary",
+              "fieldValue": "={{ $('Parse Classification').first().json.summary }}"
+            },
+            {
+              "fieldId": "suggested_reply",
+              "fieldValue": "={{ $('Parse Classification').first().json.suggested_reply }}"
+            },
+            {
+              "fieldId": "handoff",
+              "fieldValue": "={{ $('Parse Classification').first().json.handoff }}"
+            },
+            {
+              "fieldId": "labels",
+              "fieldValue": "={{ JSON.stringify($('Parse Classification').first().json.ai_labels) }}"
+            },
+            {
+              "fieldId": "received_at",
+              "fieldValue": "={{ $('Parse Classification').first().json.received_at }}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        624,
+        -32
+      ],
+      "id": "ef0f4790-45fd-466a-ba31-0fa4e53dfda0",
+      "name": "Save Email",
+      "credentials": {
+        "supabaseApi": {
+          "id": "jHf91rCtYwCQ9qVZ",
+          "name": "Supabase account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "chatId": "5568245640",
+        "text": "={{ $json.text }}",
+        "additionalFields": {
+          "appendAttribution": false,
+          "parse_mode": "HTML"
+        }
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        1744,
+        336
+      ],
+      "id": "3a2196f9-0d35-4882-845f-42786494b9b7",
+      "name": "Notify Telegram",
+      "webhookId": "dd907ac7-5a01-466f-8997-d46824512fb7",
+      "credentials": {
+        "telegramApi": {
+          "id": "9IdZ6N5s7HXy39Kf",
+          "name": "Telegram account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "tableId": "bot_emails",
+        "limit": 1,
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "message_id",
+              "condition": "eq",
+              "keyValue": "={{ $('Parse Classification').item.json.message_id }}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        240,
+        -16
+      ],
+      "id": "100fac96-fbb8-4894-8b29-d65a1184b3b8",
+      "name": "Check Email Exists",
+      "alwaysOutputData": true,
+      "credentials": {
+        "supabaseApi": {
+          "id": "jHf91rCtYwCQ9qVZ",
+          "name": "Supabase account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "dad845b6-1969-46be-a5c9-2e0c936df123",
+              "leftValue": "={{ $json.id ? 'exists' : 'new' }}",
+              "operator": {
+                "operation": "equals",
+                "type": "string"
+              },
+              "rightValue": "new"
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        400,
+        -16
+      ],
+      "id": "dd0011d8-3b02-41f0-8143-4a95fbb7e25d",
+      "name": "Is New Email?"
+    },
+    {
+      "parameters": {
+        "jsCode": "const e = $('Parse Classification').first().json;\n\n// Escape user-controlled text so Telegram's HTML parser never rejects the message\nconst esc = (s) => String(s ?? '')\n  .replace(/&/g, '&amp;')\n  .replace(/</g, '&lt;')\n  .replace(/>/g, '&gt;');\n\nconst cut = (s, n) => {\n  const t = String(s ?? '');\n  return t.length > n ? t.slice(0, n) + '...' : t;\n};\n\nconst text = [\n  '📧 <b>إيميل جديد</b>',\n  '',\n  `👤 من: ${esc(e.sender_name)}`,\n  `📩 إيميل: ${esc(e.sender_email)}`,\n  `📌 الموضوع: ${esc(cut(e.subject, 200))}`,\n  '',\n  `🏷️ التصنيف: ${esc(e.category)}`,\n  `⚡ الأولوية: ${esc(e.priority)}`,\n  `😊 المشاعر: ${esc(e.sentiment)}`,\n  '',\n  '📝 <b>ملخص:</b>',\n  esc(cut(e.summary, 800)),\n  '',\n  e.handoff ? '🚨 يحتاج تدخل بشري!' : '✅ تم التعامل أوتوماتيك'\n].join('\\n');\n\nreturn [{ json: { text } }];"
+      },
+      "id": "51e394e9-2c2f-40e5-9d6b-e84d756312a5",
+      "name": "Build Telegram Message",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1568,
+        336
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "reply",
+        "messageId": "={{ $('Parse Classification').first().json.message_id }}",
+        "message": "={{ $('Parse Classification').first().json.suggested_reply }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        1136,
+        144
+      ],
+      "id": "1c0476a4-b1b4-4ba5-afc7-f3517291df2a",
+      "name": "Auto Reply",
+      "webhookId": "0b211d7f-8b3f-4b97-9fde-1ff4bb729450",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "ZSNyqqIS5CDPf9Op",
+          "name": "Gmail account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "d27339c4-cd9b-4f20-aaff-36ffe0180efc",
+              "leftValue": "={{ $('Parse Classification').first().json.category }}",
+              "operator": {
+                "operation": "equals",
+                "type": "string"
+              },
+              "rightValue": "question"
+            },
+            {
+              "id": "1ca8155e-a785-4b86-9e1b-d7fc6c7ad865",
+              "leftValue": "={{ $('Parse Classification').first().json.handoff ? 'true' : 'false' }}",
+              "operator": {
+                "operation": "equals",
+                "type": "string"
+              },
+              "rightValue": "false"
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        848,
+        320
+      ],
+      "id": "c261a55f-a27d-4556-9e30-63f4db64052f",
+      "name": "Should Auto Reply"
+    },
+    {
+      "parameters": {
+        "operation": "addLabels",
+        "messageId": "={{ $('Parse Classification').first().json.message_id }}",
+        "labelIds": [
+          "SPAM"
+        ]
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        1184,
+        -48
+      ],
+      "id": "f68807ea-42b8-4b7a-ba8a-8ddaaf74c5bd",
+      "name": "Archive Spam",
+      "webhookId": "eac15fde-f65d-449b-85c2-e02fde795daa",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "ZSNyqqIS5CDPf9Op",
+          "name": "Gmail account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "42f31642-36ef-4dde-9b7f-33394902b51a",
+              "leftValue": "={{ $('Parse Classification').first().json.category }}",
+              "operator": {
+                "operation": "equals",
+                "type": "string"
+              },
+              "rightValue": "spam"
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        864,
+        -32
+      ],
+      "id": "04241825-7047-4d83-bea2-69afaa22b3ab",
+      "name": "is spam"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "64b3eb0d-ee0c-476c-81f2-fc9360ad0c4a",
+              "leftValue": "={{ $('Parse Classification').first().json.is_lead ? 'yes' : 'no' }}",
+              "operator": {
+                "operation": "equals",
+                "type": "string"
+              },
+              "rightValue": "yes"
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        864,
+        -240
+      ],
+      "id": "bfcbb9a7-8930-450b-91b0-d96196aaaecc",
+      "name": "Is Lead"
+    },
+    {
+      "parameters": {
+        "tableId": "bot_leads",
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "sender_email",
+              "fieldValue": "={{ $('Parse Classification').first().json.sender_email }}"
+            },
+            {
+              "fieldId": "sender_name",
+              "fieldValue": "={{ $('Parse Classification').first().json.sender_name }}"
+            },
+            {
+              "fieldId": "phone",
+              "fieldValue": "={{ $('Parse Classification').first().json.lead_phone }}"
+            },
+            {
+              "fieldId": "company",
+              "fieldValue": "={{ $('Parse Classification').first().json.lead_company }}"
+            },
+            {
+              "fieldId": "intent",
+              "fieldValue": "={{ $('Parse Classification').first().json.lead_intent }}"
+            },
+            {
+              "fieldId": "lead_score",
+              "fieldValue": "={{ $('Parse Classification').first().json.lead_score }}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        1072,
+        -256
+      ],
+      "id": "5b216aa7-b918-4728-a1b0-c2f6624324b9",
+      "name": "Save Lead",
+      "credentials": {
+        "supabaseApi": {
+          "id": "jHf91rCtYwCQ9qVZ",
+          "name": "Supabase account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "chatId": "5568245640",
+        "text": "={{ $json.text }}",
+        "additionalFields": {
+          "appendAttribution": false,
+          "parse_mode": "HTML"
+        }
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        1456,
+        -256
+      ],
+      "id": "45636272-5d40-46d1-812a-4264ef9d313e",
+      "name": "Notify Lead",
+      "webhookId": "e679193f-78d7-40e9-8e56-7895d712de43",
+      "credentials": {
+        "telegramApi": {
+          "id": "9IdZ6N5s7HXy39Kf",
+          "name": "Telegram account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const e = $('Parse Classification').first().json;\n\nconst esc = (s) => String(s ?? '')\n  .replace(/&/g, '&amp;')\n  .replace(/</g, '&lt;')\n  .replace(/>/g, '&gt;');\n\nconst text = [\n  '🎯 <b>عميل محتمل جديد!</b>',\n  '',\n  `👤 الاسم: ${esc(e.sender_name)}`,\n  `📧 الإيميل: ${esc(e.sender_email)}`,\n  `📱 التليفون: ${esc(e.lead_phone || 'غير متوفر')}`,\n  `🏢 الشركة: ${esc(e.lead_company || 'غير متوفر')}`,\n  '',\n  `💡 الاهتمام: ${esc(e.lead_intent || '-')}`,\n  `⭐ Lead Score: ${esc(e.lead_score)}/100`\n].join('\\n');\n\nreturn [{ json: { text } }];"
+      },
+      "id": "2b4c2052-8d9b-42f7-a4cc-64afbd4e7854",
+      "name": "Build Lead Message",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1264,
+        -256
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "tableId": "bot_emails",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "message_id",
+              "condition": "is",
+              "keyValue": "={{ $('Parse Classification').first().json.message_id }}"
+            }
+          ]
+        },
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "auto_replied",
+              "fieldValue": "true"
+            },
+            {
+              "fieldId": "reply_text",
+              "fieldValue": "={{ $('Parse Classification').first().json.suggested_reply }}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        1344,
+        144
+      ],
+      "id": "7fcbb67e-5364-4f63-aec7-5d579ef8eec3",
+      "name": "Update Reply Status",
+      "credentials": {
+        "supabaseApi": {
+          "id": "jHf91rCtYwCQ9qVZ",
+          "name": "Supabase account 2"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Gmail Trigger": {
+      "main": [
+        [
+          {
+            "node": "Extract Email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract Email": {
+      "main": [
+        [
+          {
+            "node": "AI Classifier",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Classification": {
+      "main": [
+        [
+          {
+            "node": "Check Email Exists",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Is New Email?": {
+      "main": [
+        [
+          {
+            "node": "Save Email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check Email Exists": {
+      "main": [
+        [
+          {
+            "node": "Is New Email?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Classifier": {
+      "main": [
+        [
+          {
+            "node": "Parse Classification",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Save Email": {
+      "main": [
+        [
+          {
+            "node": "Should Auto Reply",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Is Lead",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "is spam",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Telegram Message": {
+      "main": [
+        [
+          {
+            "node": "Notify Telegram",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Notify Telegram": {
+      "main": [
+        []
+      ]
+    },
+    "Auto Reply": {
+      "main": [
+        [
+          {
+            "node": "Update Reply Status",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Should Auto Reply": {
+      "main": [
+        [
+          {
+            "node": "Auto Reply",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Build Telegram Message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "is spam": {
+      "main": [
+        [
+          {
+            "node": "Archive Spam",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        []
+      ]
+    },
+    "Archive Spam": {
+      "main": [
+        []
+      ]
+    },
+    "Is Lead": {
+      "main": [
+        [
+          {
+            "node": "Save Lead",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Save Lead": {
+      "main": [
+        [
+          {
+            "node": "Build Lead Message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Lead Message": {
+      "main": [
+        [
+          {
+            "node": "Notify Lead",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update Reply Status": {
+      "main": [
+        [
+          {
+            "node": "Build Telegram Message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": true
+  },
+  "versionId": "15f91d9f-4a68-4608-ac3d-14b31c4f5a56",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "aiBuilderAssisted": true,
+    "builderVariant": "mcp",
+    "instanceId": "889eb8c99fb0d2b879a29fcce4101c5056807687e42e12560f9b81fcb40e6aa4"
+  },
+  "nodeGroups": [],
+  "id": "YWBUMUssrPsgXUji",
+  "tags": []
+}
