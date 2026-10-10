@@ -1,41 +1,68 @@
 # AI Email Automation System
 
-Intelligent email assistant that classifies, replies, and manages incoming emails using AI. Built with n8n, OpenAI, and Supabase.
+> An intelligent email assistant that classifies, replies, and manages incoming emails using AI.
+
+![Status](https://img.shields.io/badge/status-production--ready-brightgreen)
+![n8n](https://img.shields.io/badge/n8n-workflow-orange)
+![OpenAI](https://img.shields.io/badge/OpenAI-GPT--4o--mini-blue)
+![Supabase](https://img.shields.io/badge/Supabase-PostgreSQL-green)
+![License](https://img.shields.io/badge/license-MIT-blue)
+
+---
+
+## Table of Contents
+
+- [Overview](#overview)
+- [Features](#features)
+- [Architecture](#architecture)
+- [Tech Stack](#tech-stack)
+- [Database Schema](#database-schema)
+- [Setup](#setup)
+- [Use Cases](#use-cases)
+- [Screenshots](#screenshots)
+- [Author](#author)
+
+---
 
 ## Overview
 
-An automated email management system that:
-- Classifies incoming emails by category, priority, and sentiment
-- Auto-replies to questions
-- Archives spam
-- Extracts leads from potential customers
-- Sends Telegram notifications
-- Stores everything in Supabase
+An AI-powered email automation system that transforms a standard inbox into an intelligent assistant. Every incoming email is analyzed, classified, and routed automatically — with the right action taken for each type.
+
+Built with **n8n**, **OpenAI GPT-4o-mini**, and **Supabase**, this system handles the full email lifecycle: from ingestion to classification, auto-reply, lead extraction, spam archiving, and real-time notifications.
+
+---
 
 ## Features
 
-### AI Classification
-- Category (question / order / complaint / spam / newsletter)
-- Priority (high / medium / low)
-- Sentiment (positive / neutral / negative / angry)
-- Auto-summary
+### 🧠 AI Classification
+Every email is analyzed and tagged with:
+- **Category** — question, order, complaint, spam, newsletter, other
+- **Priority** — high, medium, low
+- **Sentiment** — positive, neutral, negative, angry
+- **Summary** — 1-2 sentence digest
+- **Labels** — auto-generated topic tags
 
-### Automated Actions
-- **Auto-Reply** — Sends intelligent replies to questions
-- **Spam Archive** — Auto-archives spam emails
-- **Lead Extraction** — Extracts contact info and intent from potential customers
-- **Human Handoff** — Flags emails needing human attention
+### ⚡ Automated Actions
 
-### Notifications
-- Real-time Telegram alerts
-- Priority color coding (🔴 high / 🟡 medium / 🟢 low)
-- Lead scoring with dedicated alerts
+| Action | Trigger | Result |
+|--------|---------|--------|
+| **Auto-Reply** | Question + no handoff | AI-generated reply sent via Gmail |
+| **Spam Archive** | Category = spam | Auto-labeled and archived |
+| **Lead Extraction** | Buying intent detected | Saved to `bot_leads` |
+| **Human Handoff** | Angry / high-priority complaint | Flagged for review |
 
-### Data Persistence
-- All emails stored in Supabase
+### 🔔 Real-Time Notifications
+- Telegram alerts with priority color coding
+- Dedicated lead alerts with scoring
+- Formatted HTML messages
+
+### 💾 Data Persistence
+- Full email history in Supabase
 - Lead database with scoring
-- Duplicate prevention
-- Reply tracking
+- Duplicate prevention by message ID
+- Reply tracking per email
+
+---
 
 ## System Architecture
 
