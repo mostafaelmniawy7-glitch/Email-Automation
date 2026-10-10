@@ -29,7 +29,7 @@
       "name": "Gmail Trigger",
       "credentials": {
         "gmailOAuth2": {
-          "id": "ZSNyqqIS5CDPf9Op",
+          "id": "",
           "name": "Gmail account"
         }
       }
@@ -167,7 +167,7 @@
       "name": "Save Email",
       "credentials": {
         "supabaseApi": {
-          "id": "jHf91rCtYwCQ9qVZ",
+          "id": "jZ",
           "name": "Supabase account 2"
         }
       }
@@ -192,7 +192,7 @@
       "webhookId": "dd907ac7-5a01-466f-8997-d46824512fb7",
       "credentials": {
         "telegramApi": {
-          "id": "9IdZ6N5s7HXy39Kf",
+          "id": ",
           "name": "Telegram account 2"
         }
       }
@@ -223,7 +223,7 @@
       "alwaysOutputData": true,
       "credentials": {
         "supabaseApi": {
-          "id": "jHf91rCtYwCQ9qVZ",
+          "id": "",
           "name": "Supabase account 2"
         }
       }
@@ -292,7 +292,7 @@
       "webhookId": "0b211d7f-8b3f-4b97-9fde-1ff4bb729450",
       "credentials": {
         "gmailOAuth2": {
-          "id": "ZSNyqqIS5CDPf9Op",
+          "id": "",
           "name": "Gmail account"
         }
       }
@@ -358,7 +358,7 @@
       "webhookId": "eac15fde-f65d-449b-85c2-e02fde795daa",
       "credentials": {
         "gmailOAuth2": {
-          "id": "ZSNyqqIS5CDPf9Op",
+          "id": "",
           "name": "Gmail account"
         }
       }
@@ -471,7 +471,7 @@
       "name": "Save Lead",
       "credentials": {
         "supabaseApi": {
-          "id": "jHf91rCtYwCQ9qVZ",
+          "id": "",
           "name": "Supabase account 2"
         }
       }
@@ -496,7 +496,7 @@
       "webhookId": "e679193f-78d7-40e9-8e56-7895d712de43",
       "credentials": {
         "telegramApi": {
-          "id": "9IdZ6N5s7HXy39Kf",
+          "id": "",
           "name": "Telegram account 2"
         }
       }
@@ -550,7 +550,7 @@
       "name": "Update Reply Status",
       "credentials": {
         "supabaseApi": {
-          "id": "jHf91rCtYwCQ9qVZ",
+          "id": "",
           "name": "Supabase account 2"
         }
       }
